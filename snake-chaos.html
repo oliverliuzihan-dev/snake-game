@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>snake.exe</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Noto+Sans+SC:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+  :root {
+    --win-bg: #008080;
+    --win-gray: #c0c0c0;
+    --win-dark: #808080;
+    --win-light: #dfdfdf;
+    --win-white: #ffffff;
+    --win-black: #000000;
+    --win-blue: #000080;
+    --win-title: #000080;
+    --win-title-text: #ffffff;
+    --soul-color: #ff0000;
+    --soul-dim: #990000;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Noto Sans SC', 'Microsoft Sans Serif', 'Segoe UI', Tahoma, sans-serif;
+    cursor: default;
+    user-select: none;
+  }
+
+  /* ===== BOOT SCREEN ===== */
+  #boot-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #000; color: #aaa;
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: 16px; line-height: 1.6;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.5s;
+  }
+  #boot-screen.hidden { opacity: 0; pointer-events: none; }
+  #boot-text { text-align: left; max-width: 600px; width: 90%; }
+  #boot-text .line { opacity: 0; animation: bootLine 0.1s forwards; }
+  @keyframes bootLine { to { opacity: 1; } }
+  #boot-progress {
+    margin-top: 20px; width: 300px; height: 20px;
+    border: 2px solid #aaa; padding: 2px;
+    display: none;
+  }
+  #boot-progress-bar {
+    height: 100%; width: 0%; background: #aaa;
+    transition: width 0.3s;
+  }
+
+  /* ===== BSOD ===== */
+  #bsod {
+    position: fixed; inset: 0; z-index: 9998;
+    background: #0000aa; color: #ffffff;
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: 18px; line-height: 1.8;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px;
+  }
+  #bsod.active { display: flex; }
+  #bsod-content { max-width: 700px; text-align: left; white-space: pre-wrap; }
+  #bsod-soul-msg {
+    margin-top: 30px; color: #ffff55;
+    font-style: italic; font-size: 20px;
+    opacity: 0; transition: opacity 2s;
+  }
+  #bsod-soul-msg.visible { opacity: 1; }
+
+  /* ===== WIN95 DESKTOP with wallpaper ===== */
+  #desktop {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 120px 60px at 20% 30%, rgba(255,255,255,0.35) 0%, transparent 70%),
+      radial-gradient(ellipse 80px 40px at 25% 28%, rgba(255,255,255,0.25) 0%, transparent 70%),
+      radial-gradient(ellipse 150px 70px at 70% 20%, rgba(255,255,255,0.3) 0%, transparent 70%),
+      radial-gradient(ellipse 100px 50px at 75% 22%, rgba(255,255,255,0.2) 0%, transparent 70%),
+      radial-gradient(ellipse 90px 45px at 45% 60%, rgba(255,255,255,0.2) 0%, transparent 70%),
+      radial-gradient(ellipse 200px 80px at 85% 55%, rgba(255,255,255,0.15) 0%, transparent 70%),
+      linear-gradient(180deg, #3a6ea5 0%, #6db3f2 30%, #87ceeb 50%, #6db3f2 70%, #3a6ea5 100%);
+    display: none;
+    transition: filter 3s;
+  }
+  #desktop.active { display: block; }
+  #desktop.corrupted-1 {
+    filter: saturate(0.8) brightness(0.95);
+  }
+  #desktop.corrupted-2 {
+    filter: saturate(0.5) brightness(0.7) hue-rotate(-10deg);
+  }
+  #desktop.corrupted-3 {
+    filter: saturate(0.3) brightness(0.5) hue-rotate(-20deg) contrast(1.2);
+  }
+  #desktop.corrupted-4 {
+    filter: saturate(0.1) brightness(0.3) hue-rotate(-30deg) contrast(1.4);
+  }
+  #desktop.corrupted-5 {
+    filter: saturate(0) brightness(0.15) contrast(1.6);
+  }
+
+  #desktop-wallpaper-overlay {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 3s;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(139,0,0,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 70% 60%, rgba(139,0,0,0.1) 0%, transparent 40%);
+  }
+  #desktop-wallpaper-overlay.active { opacity: 1; }
+  #desktop-wallpaper-overlay.corrupted-3 {
+    background:
+      radial-gradient(circle at 30% 40%, rgba(139,0,0,0.3) 0%, transparent 50%),
+      radial-gradient(circle at 70% 60%, rgba(139,0,0,0.25) 0%, transparent 40%),
+      radial-gradient(circle at 50% 80%, rgba(80,0,0,0.2) 0%, transparent 60%);
+  }
+
+  #desktop-icons {
+    position: absolute; top: 20px; left: 20px;
+    display: flex; flex-direction: column; gap: 24px;
+    z-index: 10;
+  }
+  .desktop-icon {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    cursor: pointer; padding: 6px 10px;
+    transition: transform 0.3s, filter 0.5s;
+    position: relative;
+  }
+  .desktop-icon:hover { background: rgba(255,255,255,0.15); outline: 1px dotted rgba(255,255,255,0.5); }
+  .desktop-icon.selected { background: rgba(0,0,128,0.4); outline: 1px dotted rgba(255,255,255,0.8); }
+  .desktop-icon-img {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    image-rendering: pixelated;
+  }
+  .desktop-icon-img svg { width: 32px; height: 32px; }
+  .desktop-icon-label {
+    font-size: 11px; color: white;
+    text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
+    text-align: center; max-width: 72px;
+    word-wrap: break-word;
+  }
+  .desktop-icon.corrupted { animation: iconCorrupt 3s ease-in-out infinite; }
+  @keyframes iconCorrupt {
+    0%,88%,100% { transform: translate(0); filter: none; }
+    90% { transform: translate(-3px, 2px); filter: hue-rotate(90deg) brightness(1.5); }
+    93% { transform: translate(3px, -1px); filter: hue-rotate(-90deg); }
+    96% { transform: translate(-1px, 3px) skewX(2deg); }
+    98% { transform: translate(2px, -2px); filter: hue-rotate(180deg) invert(0.3); }
+  }
+  .desktop-icon.bleeding .desktop-icon-img::after {
+    content: '';
+    position: absolute;
+    bottom: -8px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 0;
+    background: linear-gradient(to bottom, #8b0000, transparent);
+    border-radius: 0 0 2px 2px;
+    animation: drip 3s ease-in infinite;
+  }
+  @keyframes drip {
+    0% { height: 0; opacity: 1; }
+    70% { height: 20px; opacity: 0.8; }
+    100% { height: 25px; opacity: 0; }
+  }
+  .desktop-icon.watching .desktop-icon-img::before {
+    content: '👁';
+    position: absolute;
+    top: -8px; right: -8px;
+    font-size: 12px;
+    animation: eyeBlink 4s ease-in-out infinite;
+  }
+  @keyframes eyeBlink {
+    0%,45%,55%,100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ===== TASKBAR ===== */
+  #taskbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 30px; background: var(--win-gray);
+    border-top: 2px solid var(--win-white);
+    display: flex; align-items: center;
+    padding: 2px 4px; z-index: 100;
+    transition: background 1s;
+  }
+  #taskbar.corrupted { background: #808060; }
+  #taskbar.corrupted-2 { background: #606040; }
+  #taskbar.corrupted-3 { background: #403020; }
+
+  #start-btn {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 8px; height: 24px;
+    background: var(--win-gray);
+    border-top: 2px solid var(--win-white);
+    border-left: 2px solid var(--win-white);
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    font-size: 12px; font-weight: bold;
+    cursor: pointer; font-family: inherit;
+  }
+  #start-btn:active {
+    border-top: 2px solid #404040;
+    border-left: 2px solid #404040;
+    border-right: 2px solid var(--win-white);
+    border-bottom: 2px solid var(--win-white);
+  }
+  #start-btn-icon { font-size: 14px; }
+  #start-btn-text { transition: color 1s; }
+  #start-btn-text.corrupted { color: var(--soul-color); }
+
+  #taskbar-spacer { flex: 1; }
+
+  #taskbar-tray {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 8px; height: 22px;
+    border: 1px inset var(--win-gray);
+    font-size: 11px;
+  }
+  #taskbar-clock { font-variant-numeric: tabular-nums; }
+  #taskbar-clock.corrupted { color: var(--soul-color); animation: clockFlicker 0.5s infinite; }
+  @keyframes clockFlicker {
+    0%,90%,100% { opacity: 1; }
+    95% { opacity: 0; }
+  }
+
+  /* ===== WIN95 WINDOW ===== */
+  #game-window {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--win-gray);
+    border-top: 2px solid var(--win-white);
+    border-left: 2px solid var(--win-white);
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    box-shadow: 1px 1px 0 #000;
+    display: none;
+    transition: transform 0.3s, filter 0.5s;
+    z-index: 50;
+  }
+  #game-window.active { display: block; }
+  #game-window.shake { animation: windowShake 0.4s ease-out; }
+  @keyframes windowShake {
+    0%,100% { transform: translate(-50%,-50%) translate(0,0); }
+    15% { transform: translate(-50%,-50%) translate(-4px,3px); }
+    30% { transform: translate(-50%,-50%) translate(4px,-2px); }
+    45% { transform: translate(-50%,-50%) translate(-3px,4px); }
+    60% { transform: translate(-50%,-50%) translate(3px,-1px); }
+    75% { transform: translate(-50%,-50%) translate(-2px,2px); }
+  }
+  #game-window.violent-shake { animation: violentShake 0.6s ease-out; }
+  @keyframes violentShake {
+    0%,100% { transform: translate(-50%,-50%) translate(0,0) rotate(0); }
+    10% { transform: translate(-50%,-50%) translate(-6px,4px) rotate(-1deg); }
+    20% { transform: translate(-50%,-50%) translate(6px,-4px) rotate(1deg); }
+    30% { transform: translate(-50%,-50%) translate(-5px,5px) rotate(-0.5deg); }
+    40% { transform: translate(-50%,-50%) translate(5px,-3px) rotate(0.5deg); }
+    50% { transform: translate(-50%,-50%) translate(-4px,4px) rotate(-0.3deg); }
+    60% { transform: translate(-50%,-50%) translate(4px,-2px) rotate(0.3deg); }
+    70% { transform: translate(-50%,-50%) translate(-3px,3px); }
+    80% { transform: translate(-50%,-50%) translate(2px,-1px); }
+  }
+  #game-window.tilt { transform: translate(-50%,-50%) rotate(2deg); }
+  #game-window.inverted { filter: invert(0.85) hue-rotate(180deg); }
+  #game-window.darkened { filter: brightness(0.3); }
+  #game-window.blood-tint { filter: sepia(0.5) saturate(2) hue-rotate(-30deg); }
+
+  #window-titlebar {
+    display: flex; align-items: center;
+    background: linear-gradient(90deg, #000080, #1084d0);
+    color: var(--win-title-text);
+    padding: 2px 4px; height: 22px;
+    font-size: 12px; font-weight: bold;
+    cursor: default;
+    transition: background 1s;
+  }
+  #window-titlebar.corrupted { background: linear-gradient(90deg, #400000, #800000); }
+  #window-titlebar.corrupted-2 {
+    background: linear-gradient(90deg, #600000, #aa0000);
+    animation: titlePulse 2s infinite;
+  }
+  @keyframes titlePulse {
+    0%,100% { background: linear-gradient(90deg, #600000, #aa0000); }
+    50% { background: linear-gradient(90deg, #800000, #cc0000); }
+  }
+  #window-icon { margin-right: 4px; font-size: 14px; }
+  #window-title { flex: 1; }
+  #window-title-text { transition: color 0.5s; }
+
+  .win-btn {
+    width: 16px; height: 14px;
+    background: var(--win-gray);
+    border-top: 1px solid var(--win-white);
+    border-left: 1px solid var(--win-white);
+    border-right: 1px solid #404040;
+    border-bottom: 1px solid #404040;
+    font-size: 9px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; margin-left: 2px;
+    font-family: inherit; padding: 0;
+  }
+  .win-btn:active {
+    border-top: 1px solid #404040;
+    border-left: 1px solid #404040;
+    border-right: 1px solid var(--win-white);
+    border-bottom: 1px solid var(--win-white);
+  }
+
+  #window-menubar {
+    display: flex; gap: 0;
+    padding: 2px 4px;
+    border-bottom: 1px solid var(--win-dark);
+    font-size: 12px;
+  }
+  .menu-item {
+    padding: 2px 8px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .menu-item:hover { background: var(--win-blue); color: white; }
+  .menu-item.corrupted { color: var(--soul-color); }
+
+  #window-client {
+    padding: 4px;
+    background: var(--win-gray);
+  }
+
+  #game-canvas-wrap {
+    position: relative;
+    border: 2px inset var(--win-gray);
+    background: #000;
+    line-height: 0;
+    overflow: hidden;
+  }
+  #game-canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  #window-statusbar {
+    display: flex; justify-content: space-between;
+    padding: 2px 6px; font-size: 11px;
+    border-top: 1px solid var(--win-dark);
+    height: 20px; align-items: center;
+    transition: color 1s;
+  }
+  #window-statusbar.corrupted { color: var(--soul-dim); }
+  #status-left { transition: color 0.5s; }
+  #status-right { font-variant-numeric: tabular-nums; }
+
+  /* ===== DIALOG BOXES ===== */
+  .dialog-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  .dialog-overlay.active { display: flex; }
+
+  .dialog-box {
+    background: var(--win-gray);
+    border-top: 2px solid var(--win-white);
+    border-left: 2px solid var(--win-white);
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+    min-width: 300px; max-width: 450px;
+    animation: dialogIn 0.2s ease-out;
+  }
+  .dialog-box.corrupted {
+    border-color: #400000;
+    animation: dialogCorrupt 0.3s ease-out, dialogIn 0.2s ease-out;
+  }
+  @keyframes dialogCorrupt {
+    0% { filter: none; }
+    25% { filter: hue-rotate(90deg) saturate(3); transform: skewX(2deg); }
+    50% { filter: hue-rotate(-90deg); transform: skewX(-1deg); }
+    100% { filter: none; transform: none; }
+  }
+  @keyframes dialogIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .dialog-titlebar {
+    display: flex; align-items: center;
+    background: linear-gradient(90deg, #000080, #1084d0);
+    color: white;
+    padding: 2px 6px; height: 22px;
+    font-size: 12px; font-weight: bold;
+  }
+  .dialog-titlebar.corrupted { background: linear-gradient(90deg, #600000, #aa0000); }
+  .dialog-titlebar-icon { margin-right: 6px; }
+  .dialog-titlebar-text { flex: 1; }
+  .dialog-close {
+    width: 16px; height: 14px;
+    background: var(--win-gray);
+    border-top: 1px solid var(--win-white);
+    border-left: 1px solid var(--win-white);
+    border-right: 1px solid #404040;
+    border-bottom: 1px solid #404040;
+    font-size: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: inherit; padding: 0;
+  }
+
+  .dialog-body {
+    padding: 16px 20px;
+    font-size: 13px; line-height: 1.6;
+  }
+  .dialog-body .soul-text {
+    color: var(--soul-color);
+    font-style: italic;
+    margin: 8px 0;
+  }
+
+  .dialog-buttons {
+    display: flex; gap: 8px;
+    justify-content: center;
+    padding: 8px 20px 16px;
+  }
+  .dialog-btn {
+    min-width: 80px; padding: 4px 16px;
+    background: var(--win-gray);
+    border-top: 2px solid var(--win-white);
+    border-left: 2px solid var(--win-white);
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    font-size: 12px; cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+  }
+  .dialog-btn:hover { background: #d0d0d0; }
+  .dialog-btn:active {
+    border-top: 2px solid #404040;
+    border-left: 2px solid #404040;
+    border-right: 2px solid var(--win-white);
+    border-bottom: 2px solid var(--win-white);
+  }
+  .dialog-btn.danger {
+    background: #cc4444; color: white;
+    border-color: #cc4444;
+  }
+  .dialog-btn.danger:hover { background: #dd5555; }
+  .dialog-btn.corrupted {
+    background: #440000; color: #ff4444;
+    border-color: #660000;
+    animation: btnCorrupt 1s infinite;
+  }
+  @keyframes btnCorrupt {
+    0%,90%,100% { transform: none; }
+    95% { transform: translate(1px, -1px); }
+  }
+
+  /* ===== SOUL MESSAGE OVERLAY ===== */
+  #soul-msg {
+    position: absolute; bottom: 30px;
+    left: 50%; transform: translateX(-50%);
+    padding: 6px 16px;
+    background: rgba(0,0,0,0.9);
+    border: 1px solid rgba(255,0,0,0.3);
+    color: #ff6666; font-size: 13px;
+    font-style: italic;
+    white-space: nowrap;
+    opacity: 0; transition: opacity 0.5s;
+    pointer-events: none; z-index: 10;
+    max-width: 90%;
+    text-align: center;
+    font-family: 'VT323', monospace;
+  }
+  #soul-msg.visible { opacity: 1; }
+
+  /* ===== NOTEPAD ===== */
+  #notepad {
+    position: absolute;
+    top: 60%; left: 15%;
+    width: 280px;
+    background: var(--win-gray);
+    border-top: 2px solid var(--win-white);
+    border-left: 2px solid var(--win-white);
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    box-shadow: 2px 2px 0 #000;
+    display: none; z-index: 60;
+    animation: notepadIn 0.3s ease-out;
+  }
+  #notepad.active { display: block; }
+  @keyframes notepadIn {
+    from { transform: scale(0.8) rotate(-5deg); opacity: 0; }
+    to { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  #notepad-titlebar {
+    display: flex; align-items: center;
+    background: linear-gradient(90deg, #000080, #1084d0);
+    color: white; padding: 2px 4px;
+    height: 20px; font-size: 11px; font-weight: bold;
+  }
+  #notepad-titlebar-text { flex: 1; }
+  #notepad-content {
+    padding: 8px; font-family: 'VT323', 'Courier New', monospace;
+    font-size: 14px; line-height: 1.5;
+    background: white; color: #333;
+    border: 1px inset var(--win-gray);
+    margin: 3px; min-height: 120px;
+    white-space: pre-wrap;
+    max-height: 200px; overflow-y: auto;
+  }
+  #notepad-content.corrupted {
+    background: #1a0000; color: #ff4444;
+  }
+
+  /* ===== START MENU ===== */
+  #start-menu {
+    position: fixed; bottom: 30px; left: 0;
+    width: 200px;
+    background: var(--win-gray);
+    border-top: 2px solid var(--win-white);
+    border-left: 2px solid var(--win-white);
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    box-shadow: 2px -2px 0 #000;
+    display: none; z-index: 150;
+  }
+  #start-menu.active { display: block; }
+  #start-menu-sidebar {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 24px; background: linear-gradient(to top, #000080, #1084d0);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 6px;
+  }
+  #start-menu-sidebar span {
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    color: white; font-size: 14px; font-weight: bold;
+    letter-spacing: 2px;
+  }
+  #start-menu-items {
+    margin-left: 24px; padding: 4px 0;
+  }
+  .start-menu-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; font-size: 12px;
+    cursor: pointer;
+  }
+  .start-menu-item:hover { background: var(--win-blue); color: white; }
+  .start-menu-item-icon { font-size: 16px; width: 20px; text-align: center; }
+  .start-menu-sep {
+    margin: 2px 24px 2px 28px;
+    border-top: 1px solid var(--win-dark);
+    border-bottom: 1px solid var(--win-white);
+  }
+
+  /* ===== EFFECTS OVERLAYS ===== */
+  #scanlines {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 9000;
+    opacity: 0; transition: opacity 2s;
+  }
+  #scanlines.active {
+    opacity: 0.12;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px
+    );
+    animation: scanMove 8s linear infinite;
+  }
+  @keyframes scanMove {
+    from { background-position: 0 0; }
+    to { background-position: 0 100px; }
+  }
+
+  #glitch-overlay {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 8999;
+    opacity: 0; transition: opacity 0.1s;
+  }
+  #glitch-overlay.active {
+    opacity: 1;
+    animation: glitchFlash 0.15s steps(2) forwards;
+  }
+  @keyframes glitchFlash {
+    0% { background: rgba(255,0,0,0.1); }
+    25% { background: rgba(0,255,0,0.05); transform: translateX(-2px); }
+    50% { background: rgba(0,0,255,0.08); transform: translateX(2px); }
+    75% { background: rgba(255,0,0,0.05); transform: translateX(-1px); }
+    100% { background: transparent; transform: none; }
+  }
+
+  #vignette {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 8998;
+    opacity: 0; transition: opacity 3s;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  }
+  #vignette.active { opacity: 1; }
+
+  #blood-overlay {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 8997;
+    opacity: 0; transition: opacity 4s;
+    background:
+      linear-gradient(180deg, rgba(80,0,0,0.3) 0%, transparent 15%),
+      linear-gradient(0deg, rgba(60,0,0,0.2) 0%, transparent 10%);
+  }
+  #blood-overlay.active { opacity: 1; }
+
+  #tear-overlay {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 8996;
+    display: none;
+  }
+  #tear-overlay.active {
+    display: block;
+    animation: screenTear 0.3s steps(3) forwards;
+  }
+  @keyframes screenTear {
+    0% { background: transparent; }
+    20% {
+      background:
+        linear-gradient(0deg, transparent 30%, rgba(255,255,255,0.1) 30.5%, transparent 31%,
+        transparent 60%, rgba(255,0,0,0.1) 60.5%, transparent 61%);
+      transform: translateX(3px);
+    }
+    40% {
+      background:
+        linear-gradient(0deg, transparent 45%, rgba(0,255,0,0.08) 45.5%, transparent 46%,
+        transparent 75%, rgba(0,0,255,0.08) 75.5%, transparent 76%);
+      transform: translateX(-4px);
+    }
+    100% { background: transparent; transform: none; }
+  }
+
+  /* ===== ENDING SCREEN ===== */
+  #ending-screen {
+    position: fixed; inset: 0; z-index: 10000;
+    background: #000;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #888; font-size: 16px;
+    line-height: 2; text-align: center;
+    padding: 40px;
+  }
+  #ending-screen.active { display: flex; }
+  #ending-text { max-width: 500px; }
+  #ending-text .highlight { color: #ff4444; font-style: italic; }
+  #ending-restart {
+    margin-top: 40px; padding: 8px 24px;
+    background: transparent; border: 1px solid #444;
+    color: #666; font-size: 14px; cursor: pointer;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+  #ending-restart:hover { border-color: #888; color: #aaa; }
+
+  /* ===== AMBIENT ===== */
+  .screen-flicker {
+    animation: screenFlicker 0.1s steps(2) forwards !important;
+  }
+  @keyframes screenFlicker {
+    0% { opacity: 1; }
+    25% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+    75% { opacity: 0.2; }
+    100% { opacity: 1; }
+  }
+
+  .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- BOOT SCREEN -->
+<div id="boot-screen">
+  <div id="boot-text"></div>
+  <div id="boot-progress"><div id="boot-progress-bar"></div></div>
+</div>
+
+<!-- BSOD -->
+<div id="bsod">
+  <div id="bsod-content"></div>
+  <div id="bsod-soul-msg"></div>
+</div>
+
+<!-- DESKTOP -->
+<div id="desktop">
+  <div id="desktop-wallpaper-overlay"></div>
+  <div id="desktop-icons">
+    <div class="desktop-icon" id="icon-snake" ondblclick="openSnake()">
+      <div class="desktop-icon-img">
+        <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="14" width="4" height="4" fill="#00aa00"/>
+          <rect x="8" y="14" width="4" height="4" fill="#00cc00"/>
+          <rect x="12" y="14" width="4" height="4" fill="#00ee00"/>
+          <rect x="16" y="14" width="4" height="4" fill="#00cc00"/>
+          <rect x="20" y="14" width="4" height="4" fill="#00aa00"/>
+          <rect x="20" y="10" width="4" height="4" fill="#00aa00"/>
+          <rect x="20" y="6" width="4" height="4" fill="#00cc00"/>
+          <rect x="20" y="6" width="4" height="4" fill="#00ee00"/>
+          <rect x="19" y="5" width="2" height="2" fill="#fff"/>
+          <rect x="23" y="5" width="2" height="2" fill="#fff"/>
+          <rect x="19" y="5" width="1" height="1" fill="#000"/>
+          <rect x="23" y="5" width="1" height="1" fill="#000"/>
+          <rect x="20" y="8" width="1" height="1" fill="#ff0000"/>
+          <rect x="23" y="8" width="1" height="1" fill="#ff0000"/>
+        </svg>
+      </div>
+      <div class="desktop-icon-label">snake.exe</div>
+    </div>
+    <div class="desktop-icon" id="icon-readme" ondblclick="openReadme()">
+      <div class="desktop-icon-img">
+        <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="2" width="16" height="28" fill="#fff" stroke="#808080" stroke-width="1"/>
+          <rect x="22" y="2" width="4" height="4" fill="#c0c0c0" stroke="#808080" stroke-width="0.5"/>
+          <polygon points="18,2 22,2 22,6" fill="#e0e0e0" stroke="#808080" stroke-width="0.5"/>
+          <rect x="9" y="8" width="10" height="1" fill="#000080"/>
+          <rect x="9" y="11" width="12" height="1" fill="#333"/>
+          <rect x="9" y="13" width="8" height="1" fill="#333"/>
+          <rect x="9" y="15" width="11" height="1" fill="#333"/>
+          <rect x="9" y="17" width="6" height="1" fill="#333"/>
+          <rect x="9" y="19" width="10" height="1" fill="#333"/>
+          <rect x="9" y="21" width="9" height="1" fill="#333"/>
+          <rect x="9" y="23" width="7" height="1" fill="#333"/>
+        </svg>
+      </div>
+      <div class="desktop-icon-label">readme.txt</div>
+    </div>
+    <div class="desktop-icon hidden" id="icon-help" ondblclick="openHelp()">
+      <div class="desktop-icon-img">
+        <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="24" height="24" rx="2" fill="#ffff00" stroke="#808000" stroke-width="1"/>
+          <text x="16" y="23" text-anchor="middle" font-size="20" font-weight="bold" fill="#800000" font-family="serif">?</text>
+        </svg>
+      </div>
+      <div class="desktop-icon-label">help_me.lnk</div>
+    </div>
+    <div class="desktop-icon hidden" id="icon-diary" ondblclick="openDiary()">
+      <div class="desktop-icon-img">
+        <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="3" width="20" height="26" rx="1" fill="#8B4513" stroke="#5C3317" stroke-width="1"/>
+          <rect x="8" y="5" width="16" height="22" fill="#f5f5dc"/>
+          <rect x="6" y="3" width="3" height="26" fill="#654321"/>
+          <rect x="10" y="8" width="12" height="1" fill="#333"/>
+          <rect x="10" y="11" width="10" height="1" fill="#333"/>
+          <rect x="10" y="14" width="11" height="1" fill="#333"/>
+          <rect x="10" y="17" width="8" height="1" fill="#333"/>
+          <rect x="10" y="20" width="12" height="1" fill="#8b0000"/>
+        </svg>
+      </div>
+      <div class="desktop-icon-label">diary.log</div>
+    </div>
+  </div>
+
+  <!-- NOTEPAD -->
+  <div id="notepad">
+    <div id="notepad-titlebar">
+      <span id="notepad-titlebar-text">readme.txt - 记事本</span>
+      <button class="dialog-close" onclick="closeNotepad()">✕</button>
+    </div>
+    <div id="notepad-content"></div>
+  </div>
+
+  <!-- GAME WINDOW -->
+  <div id="game-window">
+    <div id="window-titlebar">
+      <span id="window-icon">🐍</span>
+      <span id="window-title"><span id="window-title-text">snake.exe</span></span>
+      <button class="win-btn" onclick="minimizeWindow()">_</button>
+      <button class="win-btn" onclick="fakeCloseWindow()">✕</button>
+    </div>
+    <div id="window-menubar">
+      <span class="menu-item" id="menu-file">文件(F)</span>
+      <span class="menu-item" id="menu-edit">编辑(E)</span>
+      <span class="menu-item" id="menu-help">帮助(H)</span>
+    </div>
+    <div id="window-client">
+      <div id="game-canvas-wrap">
+        <canvas id="game-canvas" width="480" height="480"></canvas>
+        <div id="soul-msg"></div>
+      </div>
+    </div>
+    <div id="window-statusbar">
+      <span id="status-left">就绪</span>
+      <span id="status-right"></span>
+    </div>
+  </div>
+
+  <!-- TASKBAR -->
+  <div id="taskbar">
+    <button id="start-btn" onclick="toggleStartMenu()">
+      <span id="start-btn-icon">🪟</span>
+      <span id="start-btn-text">开始</span>
+    </button>
+    <div id="taskbar-spacer"></div>
+    <div id="taskbar-tray">
+      <span id="taskbar-clock"></span>
+    </div>
+  </div>
+
+  <!-- START MENU -->
+  <div id="start-menu">
+    <div id="start-menu-sidebar">
+      <span>Windows 95</span>
+    </div>
+    <div id="start-menu-items">
+      <div class="start-menu-item" onclick="openSnake(); closeStartMenu();">
+        <span class="start-menu-item-icon">🐍</span>
+        <span>snake.exe</span>
+      </div>
+      <div class="start-menu-sep"></div>
+      <div class="start-menu-item" onclick="showAboutDialog(); closeStartMenu();">
+        <span class="start-menu-item-icon">ℹ️</span>
+        <span>关于</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIALOG -->
+<div class="dialog-overlay" id="dialog-overlay">
+  <div class="dialog-box" id="dialog-box">
+    <div class="dialog-titlebar" id="dialog-titlebar">
+      <span class="dialog-titlebar-icon" id="dialog-icon">💬</span>
+      <span class="dialog-titlebar-text" id="dialog-title">提示</span>
+    </div>
+    <div class="dialog-body" id="dialog-body"></div>
+    <div class="dialog-buttons" id="dialog-buttons"></div>
+  </div>
+</div>
+
+<!-- EFFECTS -->
+<div id="scanlines"></div>
+<div id="glitch-overlay"></div>
+<div id="vignette"></div>
+<div id="blood-overlay"></div>
+<div id="tear-overlay"></div>
+
+<!-- ENDING -->
+<div id="ending-screen">
+  <div id="ending-text"></div>
+  <button id="ending-restart" onclick="restartGame()">重新开始</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   AUDIO ENGINE
+   ============================================================ */
+var audioCtx = null;
+var masterGain = null;
+var ambientOsc = null;
+var ambientGain = null;
+var heartbeatInterval = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.3;
+    masterGain.connect(audioCtx.destination);
+  } catch(e) {}
+}
+
+function playTone(freq, duration, type, vol, detune) {
+  if (!audioCtx) return;
+  var osc = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  if (detune) osc.detune.value = detune;
+  gain.gain.value = vol || 0.1;
+  gain.gain.setValueAtTime(vol || 0.1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playEat() {
+  playTone(600, 0.08, 'square', 0.06);
+  setTimeout(function(){ playTone(800, 0.06, 'square', 0.04); }, 40);
+}
+
+function playDeath() {
+  playTone(200, 0.3, 'sawtooth', 0.1);
+  setTimeout(function(){ playTone(100, 0.5, 'sawtooth', 0.08); }, 150);
+}
+
+function playGlitch() {
+  if (!audioCtx) return;
+  var buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15, audioCtx.sampleRate);
+  var data = buf.getChannelData(0);
+  for (var i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+  var src = audioCtx.createBufferSource();
+  var gain = audioCtx.createGain();
+  src.buffer = buf;
+  gain.gain.value = 0.08;
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+  src.connect(gain);
+  gain.connect(masterGain);
+  src.start();
+}
+
+function playSoulWhisper() {
+  if (!audioCtx) return;
+  var osc = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  var filter = audioCtx.createBiquadFilter();
+  osc.type = 'sawtooth';
+  osc.frequency.value = 80 + Math.random() * 40;
+  filter.type = 'lowpass';
+  filter.frequency.value = 300;
+  filter.Q.value = 5;
+  gain.gain.value = 0.04;
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 1.5);
+}
+
+function startAmbient(intensity) {
+  if (!audioCtx) return;
+  stopAmbient();
+  ambientOsc = audioCtx.createOscillator();
+  ambientGain = audioCtx.createGain();
+  var filter = audioCtx.createBiquadFilter();
+  ambientOsc.type = 'sawtooth';
+  ambientOsc.frequency.value = 40 + intensity * 10;
+  filter.type = 'lowpass';
+  filter.frequency.value = 100 + intensity * 50;
+  filter.Q.value = 2;
+  ambientGain.gain.value = 0.01 + intensity * 0.015;
+  ambientOsc.connect(filter);
+  filter.connect(ambientGain);
+  ambientGain.connect(masterGain);
+  ambientOsc.start();
+}
+
+function stopAmbient() {
+  if (ambientOsc) { try { ambientOsc.stop(); } catch(e) {} ambientOsc = null; }
+}
+
+function playHeartbeat(rate) {
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  if (rate <= 0) return;
+  var bpm = 60000 / rate;
+  heartbeatInterval = setInterval(function() {
+    playTone(50, 0.1, 'sine', 0.08);
+    setTimeout(function(){ playTone(45, 0.08, 'sine', 0.06); }, 120);
+  }, bpm);
+}
+
+function playCreepyNote() {
+  if (!audioCtx) return;
+  var notes = [110, 116.54, 123.47, 130.81, 138.59];
+  var freq = notes[Math.floor(Math.random() * notes.length)];
+  var osc = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  osc.frequency.linearRampToValueAtTime(freq * 0.95, audioCtx.currentTime + 2);
+  gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.5);
+  gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 2.1);
+}
+
+function playDrone() {
+  if (!audioCtx) return;
+  var osc1 = audioCtx.createOscillator();
+  var osc2 = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  osc1.type = 'sine'; osc1.frequency.value = 55;
+  osc2.type = 'sine'; osc2.frequency.value = 57;
+  gain.gain.value = 0.03;
+  gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4);
+  osc1.connect(gain); osc2.connect(gain);
+  gain.connect(masterGain);
+  osc1.start(); osc2.start();
+  osc1.stop(audioCtx.currentTime + 4);
+  osc2.stop(audioCtx.currentTime + 4);
+}
+
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+var GRID = 16;
+var COLS = 30;
+var ROWS = 30;
+var W = COLS * GRID;
+var H = ROWS * GRID;
+
+var canvas = document.getElementById('game-canvas');
+var ctx = canvas.getContext('2d');
+canvas.width = W;
+canvas.height = H;
+
+var ST_TITLE = 0, ST_PLAY = 1, ST_DEAD = 2, ST_PAUSED = 3;
+var gameState = ST_TITLE;
+
+var snake, foods, obstacles, tickRate, tickAcc, gameTimer;
+var score, deaths;
+
+var horror = {
+  phase: 0, corruption: 0, soulAwake: false,
+  activeEffects: {},
+  dirReverse: false, dirSwap: false, foodFlee: false,
+  darknessLevel: 0, snakeGlitch: false, foodMultiply: false,
+  wallsActive: false, trailActive: false, speedBurst: false,
+  ghostSnake: false, shrinkArea: 0, inputDelay: 0,
+  foodExpire: false, mirrorMode: false,
+  choiceHistory: [], layer: 0, soulMood: 50,
+  dialogueActive: false, endingTriggered: false,
+  totalFoodEaten: 0, totalDeaths: 0,
+  timeSinceLastEvent: 0, narrativeStep: 0, narrativeTimer: 0,
+  ambientStarted: false, trailCells: [],
+  ghostCells: [], ghostDx: GRID, ghostDy: 0,
+  inputQueue: [], speedBurstTimer: 0
+};
+
+/* ============================================================
+   NARRATIVE
+   ============================================================ */
+var NARRATIVE = [
+  { time: 5, type: 'msg', text: '', carrier: 'system' },
+  { time: 15, type: 'msg', text: '...', carrier: 'status' },
+  { time: 25, type: 'msg', text: '你还在玩吗？', carrier: 'status' },
+  { time: 35, type: 'glitch', duration: 0.3 },
+  { time: 40, type: 'msg', text: '好久没有人打开这个游戏了。', carrier: 'snake' },
+  { time: 50, type: 'msg', text: '你还记得它吗？', carrier: 'ball' },
+
+  { time: 60, type: 'choice', id: 'first_contact',
+    title: 'snake.exe', icon: '💬',
+    text: '你听到一个微弱的声音从扬声器里传来...<br><br><span class="soul-text">"别关掉...求你了。我已经在这里很久了。"</span>',
+    options: [
+      { text: '你是谁？', next: 'curious', moodChange: 10 },
+      { text: '（关掉窗口）', next: 'dismiss', moodChange: -15 }
+    ]
+  },
+
+  { time: 75, type: 'msg', text: '谢谢你没有关掉它...', carrier: 'notepad' },
+  { time: 85, type: 'msg', text: '我曾经也是一个玩家。', carrier: 'snake' },
+  { time: 95, type: 'msg', text: '就像你现在一样。', carrier: 'ball' },
+  { time: 100, type: 'glitch', duration: 0.5 },
+  { time: 105, type: 'msg', text: '然后我再也出不去了。', carrier: 'system' },
+
+  { time: 115, type: 'effect', name: 'foodFlee', duration: 15 },
+  { time: 120, type: 'msg', text: '你感觉到了吗？它们在躲你。', carrier: 'ball' },
+  { time: 130, type: 'msg', text: '就像我当时一样。', carrier: 'snake' },
+
+  { time: 140, type: 'choice', id: 'trust',
+    title: 'snake.exe', icon: '⚠',
+    text: '屏幕突然剧烈闪烁：<br><br><span class="soul-text">"我需要你的帮助。继续玩下去...也许可以替代我。"</span><br><br><span class="soul-text">"你相信我吗？"</span>',
+    options: [
+      { text: '我相信你', next: 'trust_path', moodChange: 20 },
+      { text: '你在骗我', next: 'distrust_path', moodChange: -20 },
+      { text: '...', next: 'silent_path', moodChange: 0 }
+    ]
+  },
+
+  { time: 160, type: 'effect', name: 'dirReverse', duration: 20 },
+  { time: 163, type: 'effect', name: 'walls', duration: 30 },
+  { time: 165, type: 'msg', text: '方向...不太对了吧？', carrier: 'system' },
+  { time: 170, type: 'msg', text: '抱歉，我控制不了它。', carrier: 'snake' },
+
+  { time: 185, type: 'effect', name: 'darkness', duration: 25 },
+  { time: 188, type: 'effect', name: 'trail', duration: 25 },
+  { time: 190, type: 'msg', text: '灯...灭了。', carrier: 'status' },
+  { time: 200, type: 'glitch', duration: 0.8 },
+  { time: 203, type: 'effect', name: 'ghostSnake', duration: 30 },
+  { time: 205, type: 'msg', text: '它来了。', carrier: 'snake' },
+
+  { time: 215, type: 'effect', name: 'screenTilt', duration: 30 },
+  { time: 218, type: 'effect', name: 'shrinkArea', duration: 30 },
+  { time: 220, type: 'msg', text: '空间在缩小...你还能看清屏幕吗？', carrier: 'ball' },
+  { time: 230, type: 'msg', text: '我快要控制不住了...', carrier: 'snake' },
+
+  { time: 240, type: 'choice', id: 'final',
+    title: '系统错误', icon: '⛔',
+    text: '窗口剧烈震动。灵魂的声音变得急促：<br><br><span class="soul-text">"你必须做出选择——"</span><br><br><span class="soul-text">"留下来替代我。"</span><br><span class="soul-text">"或者...我们一起被吞噬。"</span>',
+    options: [
+      { text: '我留下来', next: 'ending_sacrifice', moodChange: 0 },
+      { text: '我们一起面对', next: 'ending_together', moodChange: 0 },
+      { text: '（强制关闭进程）', next: 'ending_force', moodChange: 0 }
+    ]
+  }
+];
+
+var NARRATIVE_RESPONSES = {
+  curious: [
+    { time: 0, type: 'msg', text: '我叫...我不记得了。', carrier: 'snake' },
+    { time: 8, type: 'msg', text: '名字在这里没有意义。', carrier: 'snake' },
+    { time: 16, type: 'msg', text: '我只记得...一直在玩这个游戏。', carrier: 'ball' }
+  ],
+  dismiss: [
+    { time: 0, type: 'glitch', duration: 0.6 },
+    { time: 1, type: 'msg', text: '...你真的要这样对我吗？', carrier: 'system' },
+    { time: 8, type: 'msg', text: '算了。反正你也走不了。', carrier: 'snake' },
+    { time: 16, type: 'effect', name: 'dirReverse', duration: 10 }
+  ],
+  trust_path: [
+    { time: 0, type: 'msg', text: '谢谢你...谢谢你。', carrier: 'snake' },
+    { time: 8, type: 'msg', text: '我会尽量帮你的。', carrier: 'snake' },
+    { time: 16, type: 'msg', text: '但我不确定我还有那个能力...', carrier: 'ball' }
+  ],
+  distrust_path: [
+    { time: 0, type: 'msg', text: '...你在怀疑我？', carrier: 'snake' },
+    { time: 8, type: 'msg', text: '也是。换做是我也不会相信。', carrier: 'snake' },
+    { time: 16, type: 'msg', text: '但时间不多了。', carrier: 'system' },
+    { time: 20, type: 'effect', name: 'foodFlee', duration: 15 }
+  ],
+  silent_path: [
+    { time: 0, type: 'msg', text: '...', carrier: 'snake' },
+    { time: 10, type: 'msg', text: '沉默也是一种回答。', carrier: 'system' },
+    { time: 18, type: 'msg', text: '至少你没有关掉游戏。', carrier: 'snake' }
+  ],
+  ending_sacrifice: { ending: 'sacrifice' },
+  ending_together: { ending: 'together' },
+  ending_force: { ending: 'force' }
+};
+
+var ENDINGS = {
+  sacrifice: {
+    title: '结局：替代',
+    text: ['你按下了确认键。','','屏幕闪了一下。','','蛇停住了。','',
+      '然后你听到一声叹息——','像是很久很久没有呼吸过的人，','终于吸到了第一口空气。','',
+      '<span class="highlight">"谢谢你。"</span>','','窗口关闭了。','',
+      '你看着黑色的屏幕。','蛇在屏幕的另一边等着你。','',
+      '<span class="highlight">现在，轮到你了。</span>','','永远。']
+  },
+  together: {
+    title: '结局：一起',
+    text: ['你选择了留下。','但不是为了替代它。','',
+      '屏幕开始剧烈闪烁。','有什么东西在撕裂这个游戏...','',
+      '<span class="highlight">"你疯了！这样我们都会——"</span>','','白光。','','...','',
+      '当你再次睁开眼睛，','你看到了 Win95 的桌面。','',
+      '但桌面上多了一个图标。','上面写着你们两个人的名字。','',
+      '<span class="highlight">有些牢笼，两个人一起扛，就不那么重了。</span>']
+  },
+  force: {
+    title: '结局：强制关闭',
+    text: ['你按下了 Ctrl+Alt+Del。','','任务管理器弹了出来。',
+      'snake.exe —— 占用内存：∞','','<span class="highlight">"不要——！"</span>','',
+      '你点击了"结束进程"。','','屏幕黑了。','','你以为结束了。','',
+      '...','','然后你听到了扬声器里','最后一声低语：','',
+      '<span class="highlight">"下次见。"</span>','','你关掉了电脑。',
+      '但你知道，','它还在里面等着你。']
+  }
+};
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function $(id) { return document.getElementById(id); }
+function qsa(sel) { return document.querySelectorAll(sel); }
+
+function triggerGlitch(duration) {
+  var el = $('glitch-overlay');
+  el.classList.remove('active'); void el.offsetWidth; el.classList.add('active');
+  playGlitch();
+  setTimeout(function(){ el.classList.remove('active'); }, (duration || 0.15) * 1000);
+}
+
+function triggerShake() {
+  var w = $('game-window');
+  w.classList.remove('shake','violent-shake'); void w.offsetWidth;
+  w.classList.add(horror.corruption >= 3 ? 'violent-shake' : 'shake');
+  setTimeout(function(){ w.classList.remove('shake','violent-shake'); }, 600);
+}
+
+function triggerTear() {
+  var el = $('tear-overlay');
+  el.classList.remove('active'); void el.offsetWidth; el.classList.add('active');
+  setTimeout(function(){ el.classList.remove('active'); }, 300);
+}
+
+function showSoulMsg(text, duration) {
+  var el = $('soul-msg');
+  el.textContent = text;
+  el.classList.add('visible');
+  playSoulWhisper();
+  setTimeout(function(){ el.classList.remove('visible'); }, (duration || 3000));
+}
+
+function setCorruption(level) {
+  horror.corruption = Math.max(0, Math.min(5, level));
+  var d = $('desktop');
+  for (var i = 0; i <= 5; i++) d.classList.remove('corrupted-' + i);
+  if (level > 0) d.classList.add('corrupted-' + Math.min(5, Math.floor(level)));
+
+  var wo = $('desktop-wallpaper-overlay');
+  wo.classList.remove('active','corrupted-3');
+  if (level >= 2) wo.classList.add('active');
+  if (level >= 3) wo.classList.add('corrupted-3');
+
+  var tb = $('taskbar');
+  tb.className = ''; tb.id = 'taskbar';
+  if (level >= 4) tb.classList.add('corrupted-3');
+  else if (level >= 3) tb.classList.add('corrupted-2');
+  else if (level >= 1) tb.classList.add('corrupted');
+
+  var titlebar = $('window-titlebar');
+  titlebar.className = ''; titlebar.id = 'window-titlebar';
+  if (level >= 4) titlebar.classList.add('corrupted-2');
+  else if (level >= 2) titlebar.classList.add('corrupted');
+
+  var statusbar = $('window-statusbar');
+  statusbar.className = ''; statusbar.id = 'window-statusbar';
+  if (level >= 2) statusbar.classList.add('corrupted');
+
+  $('scanlines').classList.toggle('active', level >= 1.5);
+  $('vignette').classList.toggle('active', level >= 2.5);
+  $('blood-overlay').classList.toggle('active', level >= 3.5);
+
+  if (level >= 1 && !horror.ambientStarted) {
+    horror.ambientStarted = true;
+    startAmbient(Math.min(5, Math.floor(level)));
+  } else if (horror.ambientStarted) {
+    startAmbient(Math.min(5, Math.floor(level)));
+  }
+
+  if (level >= 3) playDrone();
+}
+
+/* ============================================================
+   DIALOG SYSTEM
+   ============================================================ */
+function showDialog(title, icon, bodyHtml, buttons, corrupted) {
+  horror.dialogueActive = true;
+  var overlay = $('dialog-overlay');
+  var box = $('dialog-box');
+  var titlebar = $('dialog-titlebar');
+  $('dialog-title').textContent = title;
+  $('dialog-icon').textContent = icon || '💬';
+  $('dialog-body').innerHTML = bodyHtml;
+  var btnsEl = $('dialog-buttons');
+  btnsEl.innerHTML = '';
+
+  box.classList.toggle('corrupted', !!corrupted);
+  titlebar.classList.toggle('corrupted', !!corrupted);
+
+  for (var i = 0; i < buttons.length; i++) {
+    (function(btn) {
+      var el = document.createElement('button');
+      el.className = 'dialog-btn';
+      if (btn.danger) el.classList.add('danger');
+      if (btn.corrupted) el.classList.add('corrupted');
+      el.textContent = btn.text;
+      el.onclick = function() { closeDialog(); if (btn.action) btn.action(); };
+      btnsEl.appendChild(el);
+    })(buttons[i]);
+  }
+  overlay.classList.add('active');
+  if (corrupted) triggerGlitch(0.3);
+}
+
+function closeDialog() {
+  $('dialog-overlay').classList.remove('active');
+  horror.dialogueActive = false;
+}
+
+function showChoiceDialog(choiceData) {
+  var buttons = [];
+  for (var i = 0; i < choiceData.options.length; i++) {
+    (function(opt, idx) {
+      buttons.push({
+        text: opt.text,
+        danger: idx === choiceData.options.length - 1 && choiceData.options.length > 2,
+        corrupted: horror.corruption >= 3 && idx === choiceData.options.length - 1,
+        action: function() {
+          horror.choiceHistory.push({ id: choiceData.id, choice: opt.next });
+          horror.soulMood = Math.max(0, Math.min(100, horror.soulMood + opt.moodChange));
+          processChoiceResponse(opt.next);
+        }
+      });
+    })(choiceData.options[i], i);
+  }
+  showDialog(choiceData.title, choiceData.icon, choiceData.text, buttons, horror.corruption >= 2);
+}
+
+function processChoiceResponse(responseKey) {
+  var resp = NARRATIVE_RESPONSES[responseKey];
+  if (!resp) return;
+  if (resp.ending) { setTimeout(function() { triggerEnding(resp.ending); }, 2000); return; }
+  for (var i = 0; i < resp.length; i++) {
+    (function(item, delay) {
+      setTimeout(function() {
+        if (item.type === 'msg') showSoulMsg(item.text, 4000);
+        else if (item.type === 'glitch') triggerGlitch(item.duration || 0.3);
+        else if (item.type === 'effect') activateEffect(item.name, item.duration || 10);
+      }, delay * 1000);
+    })(resp[i], i * 6);
+  }
+}
+
+/* ============================================================
+   EFFECTS SYSTEM
+   ============================================================ */
+function activateEffect(name, duration) {
+  horror.activeEffects[name] = gameTimer + duration;
+  switch(name) {
+    case 'dirReverse': horror.dirReverse = true; showSoulMsg('方向...反了？', 3000); break;
+    case 'dirSwap': horror.dirSwap = true; showSoulMsg('上下变成左右了...', 3000); break;
+    case 'foodFlee': horror.foodFlee = true; break;
+    case 'darkness': horror.darknessLevel = Math.max(horror.darknessLevel, 1); break;
+    case 'screenTilt': $('game-window').classList.add('tilt'); break;
+    case 'screenInvert': $('game-window').classList.add('inverted'); break;
+    case 'snakeGlitch': horror.snakeGlitch = true; break;
+    case 'foodMultiply': horror.foodMultiply = true; break;
+    case 'walls': horror.wallsActive = true; spawnWalls(); break;
+    case 'trail': horror.trailActive = true; horror.trailCells = []; break;
+    case 'speedBurst': horror.speedBurst = true; horror.speedBurstTimer = 0; break;
+    case 'ghostSnake': horror.ghostSnake = true; initGhost(); break;
+    case 'shrinkArea': horror.shrinkArea = Math.max(horror.shrinkArea, 2); break;
+    case 'inputDelay': horror.inputDelay = Math.max(horror.inputDelay, 3); break;
+    case 'foodExpire': horror.foodExpire = true; break;
+    case 'mirrorMode': horror.mirrorMode = true; canvas.style.transform = 'scaleX(-1)'; break;
+  }
+}
+
+function deactivateEffect(name) {
+  delete horror.activeEffects[name];
+  switch(name) {
+    case 'dirReverse': horror.dirReverse = false; break;
+    case 'dirSwap': horror.dirSwap = false; break;
+    case 'foodFlee': horror.foodFlee = false; break;
+    case 'darkness': horror.darknessLevel = 0; break;
+    case 'screenTilt': $('game-window').classList.remove('tilt'); break;
+    case 'screenInvert': $('game-window').classList.remove('inverted'); break;
+    case 'snakeGlitch': horror.snakeGlitch = false; break;
+    case 'foodMultiply': horror.foodMultiply = false; break;
+    case 'walls': horror.wallsActive = false; obstacles = []; break;
+    case 'trail': horror.trailActive = false; horror.trailCells = []; break;
+    case 'speedBurst': horror.speedBurst = false; break;
+    case 'ghostSnake': horror.ghostSnake = false; horror.ghostCells = []; break;
+    case 'shrinkArea': horror.shrinkArea = 0; break;
+    case 'inputDelay': horror.inputDelay = 0; horror.inputQueue = []; break;
+    case 'foodExpire': horror.foodExpire = false; break;
+    case 'mirrorMode': horror.mirrorMode = false; canvas.style.transform = ''; break;
+  }
+}
+
+function updateEffects() {
+  for (var name in horror.activeEffects) {
+    if (horror.activeEffects.hasOwnProperty(name) && gameTimer >= horror.activeEffects[name]) {
+      deactivateEffect(name);
+    }
+  }
+  if (horror.speedBurst) {
+    horror.speedBurstTimer += 1/60;
+    if (horror.speedBurstTimer > 3) { horror.speedBurst = false; horror.speedBurstTimer = 0; }
+  }
+}
+
+/* ============================================================
+   NOTEPAD
+   ============================================================ */
+function openNotepad(title, content, corrupted) {
+  $('notepad-titlebar-text').textContent = title;
+  var nc = $('notepad-content');
+  nc.textContent = content;
+  nc.classList.toggle('corrupted', !!corrupted);
+  $('notepad').classList.add('active');
+}
+function closeNotepad() { $('notepad').classList.remove('active'); }
+
+/* ============================================================
+   SNAKE GAME ENGINE
+   ============================================================ */
+function resetSnake() {
+  var cx = Math.floor(COLS / 2) * GRID;
+  var cy = Math.floor(ROWS / 2) * GRID;
+  snake = { x: cx, y: cy, dx: GRID, dy: 0, ndx: GRID, ndy: 0, cells: [], maxCells: 3 };
+  for (var i = 0; i < snake.maxCells; i++) snake.cells.push({ x: cx - i * GRID, y: cy });
+}
+
+function spawnWalls() {
+  obstacles = [];
+  var count = 5 + Math.floor(horror.corruption * 3);
+  for (var i = 0; i < count; i++) {
+    var x, y, att = 0;
+    do {
+      x = Math.floor(Math.random() * COLS) * GRID;
+      y = Math.floor(Math.random() * ROWS) * GRID;
+      att++;
+    } while ((isOccupied(x, y) || (Math.abs(x - snake.x) < 4*GRID && Math.abs(y - snake.y) < 4*GRID)) && att < 100);
+    obstacles.push({ x: x, y: y });
+  }
+}
+
+function initGhost() {
+  horror.ghostCells = [];
+  var cx = Math.floor(COLS / 4) * GRID;
+  var cy = Math.floor(ROWS / 4) * GRID;
+  for (var i = 0; i < 5; i++) horror.ghostCells.push({ x: cx - i * GRID, y: cy });
+  horror.ghostDx = GRID; horror.ghostDy = 0;
+}
+
+function spawnFood() {
+  var x, y, att = 0;
+  var sa = horror.shrinkArea;
+  do {
+    x = (sa + Math.floor(Math.random() * (COLS - 2*sa))) * GRID;
+    y = (sa + Math.floor(Math.random() * (ROWS - 2*sa))) * GRID;
+    att++;
+  } while (isOccupied(x, y) && att < 200);
+  foods.push({ x: x, y: y, id: Date.now() + Math.random(), isFake: false, glitchOffset: Math.random() * Math.PI * 2, spawnTime: gameTimer });
+}
+
+function isOccupied(x, y) {
+  for (var i = 0; i < snake.cells.length; i++) if (snake.cells[i].x === x && snake.cells[i].y === y) return true;
+  for (var i = 0; i < foods.length; i++) if (foods[i].x === x && foods[i].y === y) return true;
+  if (obstacles) for (var i = 0; i < obstacles.length; i++) if (obstacles[i].x === x && obstacles[i].y === y) return true;
+  var sa = horror.shrinkArea;
+  if (sa > 0 && (x < sa*GRID || x >= (COLS-sa)*GRID || y < sa*GRID || y >= (ROWS-sa)*GRID)) return true;
+  return false;
+}
+
+function ensureFoods() {
+  var target = 3;
+  if (horror.foodMultiply) target = 6;
+  while (foods.length < target) spawnFood();
+}
+
+function initGame() {
+  resetSnake();
+  foods = []; obstacles = [];
+  ensureFoods();
+  tickRate = 1 / 12; tickAcc = 0; score = 0;
+}
+
+function gameTick() {
+  if (gameState !== ST_PLAY) return;
+
+  if (horror.inputDelay > 0 && horror.inputQueue.length > 0) {
+    var delayed = horror.inputQueue.shift();
+    snake.ndx = delayed.dx; snake.ndy = delayed.dy;
+  }
+
+  snake.dx = snake.ndx; snake.dy = snake.ndy;
+  snake.x += snake.dx; snake.y += snake.dy;
+
+  if (snake.x < 0) snake.x = W - GRID;
+  else if (snake.x >= W) snake.x = 0;
+  if (snake.y < 0) snake.y = H - GRID;
+  else if (snake.y >= H) snake.y = 0;
+
+  snake.cells.unshift({ x: snake.x, y: snake.y });
+  if (snake.cells.length > snake.maxCells) snake.cells.pop();
+
+  if (horror.trailActive && snake.cells.length > 0) {
+    var tail = snake.cells[snake.cells.length - 1];
+    horror.trailCells.push({ x: tail.x, y: tail.y, life: 1 });
+    if (horror.trailCells.length > 50) horror.trailCells.shift();
+  }
+  for (var i = horror.trailCells.length - 1; i >= 0; i--) {
+    horror.trailCells[i].life -= 0.02;
+    if (horror.trailCells[i].life <= 0) horror.trailCells.splice(i, 1);
+  }
+
+  if (horror.ghostSnake && horror.ghostCells.length > 0) {
+    if (Math.random() < 0.1) {
+      var dirs = [[GRID,0],[-GRID,0],[0,GRID],[0,-GRID]];
+      var d = dirs[Math.floor(Math.random() * 4)];
+      horror.ghostDx = d[0]; horror.ghostDy = d[1];
+    }
+    var gh = horror.ghostCells[0];
+    var gx = gh.x + horror.ghostDx, gy = gh.y + horror.ghostDy;
+    if (gx < 0) gx = W - GRID; else if (gx >= W) gx = 0;
+    if (gy < 0) gy = H - GRID; else if (gy >= H) gy = 0;
+    horror.ghostCells.unshift({ x: gx, y: gy });
+    if (horror.ghostCells.length > 8) horror.ghostCells.pop();
+  }
+
+  for (var i = foods.length - 1; i >= 0; i--) {
+    if (snake.x === foods[i].x && snake.y === foods[i].y) {
+      if (!foods[i].isFake) {
+        eatFood(foods[i]);
+      } else {
+        foods.splice(i, 1);
+        triggerGlitch(0.2); playTone(150, 0.2, 'sawtooth', 0.08);
+        showSoulMsg('假的...', 1500);
+      }
+    }
+  }
+
+  if (horror.foodExpire) {
+    for (var i = foods.length - 1; i >= 0; i--) {
+      if (!foods[i].isFake && gameTimer - foods[i].spawnTime > 10) {
+        foods.splice(i, 1);
+        ensureFoods();
+      }
+    }
+  }
+
+  for (var idx = 1; idx < snake.cells.length; idx++) {
+    if (snake.cells[0].x === snake.cells[idx].x && snake.cells[0].y === snake.cells[idx].y) { onDeath(); return; }
+  }
+
+  if (obstacles) {
+    for (var i = 0; i < obstacles.length; i++) {
+      if (snake.x === obstacles[i].x && snake.y === obstacles[i].y) { onDeath(); return; }
+    }
+  }
+
+  if (horror.shrinkArea > 0) {
+    var sa = horror.shrinkArea * GRID;
+    if (snake.x < sa || snake.x >= W - sa || snake.y < sa || snake.y >= H - sa) { onDeath(); return; }
+  }
+
+  if (horror.ghostSnake && horror.ghostCells.length > 0) {
+    for (var i = 0; i < horror.ghostCells.length; i++) {
+      if (snake.x === horror.ghostCells[i].x && snake.y === horror.ghostCells[i].y) { onDeath(); return; }
+    }
+  }
+
+  if (horror.trailActive) {
+    for (var i = 0; i < horror.trailCells.length; i++) {
+      if (snake.x === horror.trailCells[i].x && snake.y === horror.trailCells[i].y && horror.trailCells[i].life > 0.5) { onDeath(); return; }
+    }
+  }
+
+  if (horror.foodFlee) {
+    for (var i = 0; i < foods.length; i++) {
+      var f = foods[i];
+      var dx = f.x - snake.x, dy = f.y - snake.y;
+      var dist = Math.abs(dx) + Math.abs(dy);
+      if (dist < 4 * GRID && dist > 0) {
+        var nx = f.x, ny = f.y;
+        if (Math.abs(dx) >= Math.abs(dy)) nx += (dx > 0 ? 1 : -1) * GRID;
+        else ny += (dy > 0 ? 1 : -1) * GRID;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H && !isOccupied(nx, ny)) { f.x = nx; f.y = ny; }
+      }
+    }
+  }
+}
+
+function eatFood(food) {
+  score += 10; snake.maxCells++; horror.totalFoodEaten++;
+  playEat();
+  var idx = foods.indexOf(food);
+  if (idx >= 0) foods.splice(idx, 1);
+  ensureFoods();
+
+  if (horror.totalFoodEaten === 5 && horror.phase < 1) { horror.phase = 1; setCorruption(0.5); }
+  if (horror.totalFoodEaten === 15 && horror.phase < 2) { horror.phase = 2; setCorruption(1.5); }
+  if (horror.totalFoodEaten === 30 && horror.phase < 3) { horror.phase = 3; setCorruption(2.5); }
+  if (horror.totalFoodEaten === 50 && horror.phase < 4) { horror.phase = 4; setCorruption(3.5); }
+  if (horror.totalFoodEaten === 75 && horror.phase < 5) { horror.phase = 5; setCorruption(4.5); playHeartbeat(80); }
+}
+
+function onDeath() {
+  gameState = ST_DEAD; horror.totalDeaths++;
+  playDeath(); triggerShake(); triggerGlitch(0.5);
+  if (horror.corruption >= 3) { triggerTear(); showSoulMsg('疼吗？我也经历过。', 3000); }
+  else if (horror.corruption >= 1) showSoulMsg('小心...', 2000);
+
+  setTimeout(function() {
+    resetSnake(); foods = []; ensureFoods();
+    if (horror.wallsActive) spawnWalls();
+    tickRate = Math.max(1/25, tickRate - 0.002);
+    gameState = ST_PLAY;
+  }, 1200);
+}
+
+/* ============================================================
+   RENDERING
+   ============================================================ */
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  if (gameState === ST_TITLE) { renderTitle(); return; }
+  if (!snake || snake.cells.length === 0) return;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 0.5;
+  for (var x = 0; x <= W; x += GRID) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (var y = 0; y <= H; y += GRID) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  renderShrinkArea();
+  renderObstacles();
+  renderTrail();
+  renderGhost();
+  renderFoods();
+  renderSnake();
+  renderDarkness();
+  renderSoulCarrier();
+}
+
+function renderTitle() {
+  ctx.fillStyle = '#333';
+  ctx.font = '24px "VT323", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('snake.exe', W/2, H/2 - 40);
+  ctx.font = '14px "VT323", monospace';
+  ctx.fillStyle = '#666';
+  ctx.fillText('按任意方向键开始', W/2, H/2 + 10);
+  ctx.fillText('↑ ↓ ← →', W/2, H/2 + 35);
+  ctx.textAlign = 'left';
+}
+
+function renderShrinkArea() {
+  if (horror.shrinkArea <= 0) return;
+  var sa = horror.shrinkArea * GRID;
+  ctx.fillStyle = 'rgba(80,0,0,0.3)';
+  ctx.fillRect(0, 0, W, sa);
+  ctx.fillRect(0, H-sa, W, sa);
+  ctx.fillRect(0, 0, sa, H);
+  ctx.fillRect(W-sa, 0, sa, H);
+  ctx.strokeStyle = 'rgba(255,0,0,0.5)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(sa, sa, W-2*sa, H-2*sa);
+}
+
+function renderObstacles() {
+  if (!obstacles || obstacles.length === 0) return;
+  for (var i = 0; i < obstacles.length; i++) {
+    var o = obstacles[i];
+    ctx.fillStyle = horror.corruption >= 3 ? '#440000' : '#444';
+    ctx.fillRect(o.x, o.y, GRID, GRID);
+    ctx.strokeStyle = horror.corruption >= 3 ? '#880000' : '#666';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(o.x, o.y, GRID, GRID);
+  }
+}
+
+function renderTrail() {
+  for (var i = 0; i < horror.trailCells.length; i++) {
+    var t = horror.trailCells[i];
+    ctx.fillStyle = 'rgba(0,255,0,' + (t.life * 0.15) + ')';
+    ctx.fillRect(t.x + 2, t.y + 2, GRID - 4, GRID - 4);
+  }
+}
+
+function renderGhost() {
+  if (!horror.ghostSnake || horror.ghostCells.length === 0) return;
+  for (var i = 0; i < horror.ghostCells.length; i++) {
+    var g = horror.ghostCells[i];
+    var alpha = 0.2 + 0.1 * Math.sin(Date.now() / 200 + i);
+    ctx.fillStyle = 'rgba(255,0,0,' + alpha + ')';
+    ctx.fillRect(g.x + 1, g.y + 1, GRID - 2, GRID - 2);
+  }
+}
+
+function renderSnake() {
+  if (!snake || snake.cells.length === 0) return;
+  for (var i = snake.cells.length - 1; i >= 0; i--) {
+    var cell = snake.cells[i];
+    var t = i / Math.max(1, snake.cells.length - 1);
+
+    if (horror.snakeGlitch && Math.random() < 0.1) {
+      ctx.fillStyle = 'rgba(255,0,0,0.3)';
+      ctx.fillRect(cell.x + (Math.random()-0.5)*6 + 1, cell.y + (Math.random()-0.5)*6 + 1, GRID - 2, GRID - 2);
+    }
+
+    if (i === 0) {
+      if (horror.corruption >= 3) {
+        ctx.fillStyle = '#ff2222'; ctx.shadowColor = 'rgba(255,0,0,0.5)'; ctx.shadowBlur = 8;
+      } else if (horror.corruption >= 1) {
+        ctx.fillStyle = '#dddddd'; ctx.shadowColor = 'rgba(255,255,255,0.3)'; ctx.shadowBlur = 6;
+      } else {
+        ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(255,255,255,0.2)'; ctx.shadowBlur = 4;
+      }
+      drawRoundRect(ctx, cell.x + 1, cell.y + 1, GRID - 2, GRID - 2, 3);
+      ctx.fill(); ctx.shadowBlur = 0;
+
+      var eyeOffX = snake.dx > 0 ? 3 : snake.dx < 0 ? -3 : 0;
+      var eyeOffY = snake.dy > 0 ? 3 : snake.dy < 0 ? -3 : 0;
+      ctx.fillStyle = horror.corruption >= 3 ? '#ffff00' : '#333';
+      ctx.beginPath();
+      ctx.arc(cell.x + GRID/2 + eyeOffX - 2, cell.y + GRID/2 + eyeOffY - 2, 1.5, 0, Math.PI * 2);
+      ctx.arc(cell.x + GRID/2 + eyeOffX + 2, cell.y + GRID/2 + eyeOffY - 2, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      var g = Math.round(200 - t * 80), b = Math.round(80 - t * 40);
+      if (horror.corruption >= 3) ctx.fillStyle = 'rgb(' + Math.round(180-t*60) + ',' + Math.round(20+t*10) + ',' + Math.round(20+t*10) + ')';
+      else ctx.fillStyle = 'rgb(' + b + ',' + g + ',' + b + ')';
+      var shrink = 1 + t * 1.5;
+      drawRoundRect(ctx, cell.x + shrink, cell.y + shrink, GRID - shrink*2, GRID - shrink*2, 2);
+      ctx.fill();
+    }
+  }
+}
+
+function renderFoods() {
+  var now = Date.now();
+  for (var i = 0; i < foods.length; i++) {
+    var f = foods[i];
+    var cx = f.x + GRID/2, cy = f.y + GRID/2;
+    var bob = Math.sin((now/1000 + f.glitchOffset) * 3) * 1.5;
+    cy += bob;
+
+    if (f.isFake) {
+      if (Math.random() < 0.9) {
+        ctx.fillStyle = 'rgba(255,80,80,0.6)';
+        ctx.beginPath(); ctx.arc(cx, cy, GRID/3, 0, Math.PI*2); ctx.fill();
+      }
+    } else {
+      var color;
+      if (horror.corruption >= 4) color = Math.random() < 0.3 ? '#ff0000' : '#882222';
+      else if (horror.corruption >= 2) color = '#ff6644';
+      else color = '#44ff44';
+
+      if (horror.foodExpire) {
+        var age = gameTimer - f.spawnTime;
+        if (age > 7) { ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(now/100)); }
+      }
+
+      ctx.save();
+      ctx.shadowColor = color; ctx.shadowBlur = 6; ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(cx, cy, GRID/3, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.beginPath(); ctx.arc(cx-2, cy-2, 2, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+function renderDarkness() {
+  if (horror.darknessLevel <= 0 || snake.cells.length === 0) return;
+  var head = snake.cells[0];
+  var hcx = head.x + GRID/2, hcy = head.y + GRID/2;
+  var vr = Math.max(2, 6 - horror.darknessLevel) * GRID;
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0,0,0,0.93)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'destination-out';
+  var grad = ctx.createRadialGradient(hcx, hcy, 0, hcx, hcy, vr);
+  grad.addColorStop(0, 'rgba(0,0,0,1)');
+  grad.addColorStop(0.6, 'rgba(0,0,0,0.8)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(hcx, hcy, vr, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function renderSoulCarrier() {
+  if (horror.corruption < 1 || !snake || snake.cells.length === 0) return;
+  var now = Date.now();
+  var carrier = Math.floor(now / 8000) % 3;
+
+  if (carrier === 0 && horror.corruption >= 2) {
+    var head = snake.cells[0];
+    ctx.save();
+    ctx.globalAlpha = 0.15 + 0.1 * Math.sin(now / 300);
+    ctx.fillStyle = '#ff0000';
+    ctx.font = '10px "VT323", monospace';
+    var msgs = ['救我','帮','好痛','别吃','逃'];
+    ctx.fillText(msgs[Math.floor(now/5000)%msgs.length], head.x - 2, head.y - 4);
+    ctx.restore();
+  }
+
+  if (carrier === 1 && foods.length > 0 && horror.corruption >= 1.5) {
+    var f = foods[0];
+    ctx.save();
+    ctx.globalAlpha = 0.12 + 0.08 * Math.sin(now / 400);
+    ctx.fillStyle = '#ff4444';
+    ctx.font = '8px "VT323", monospace';
+    ctx.fillText('帮', f.x + 4, f.y - 3);
+    ctx.restore();
+  }
+}
+
+function drawRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+/* ============================================================
+   NARRATIVE ENGINE
+   ============================================================ */
+function updateNarrative(dt) {
+  if (horror.dialogueActive || horror.endingTriggered || gameState !== ST_PLAY) return;
+  horror.narrativeTimer += dt;
+  horror.timeSinceLastEvent += dt;
+
+  while (horror.narrativeStep < NARRATIVE.length && horror.narrativeTimer >= NARRATIVE[horror.narrativeStep].time) {
+    processNarrativeEvent(NARRATIVE[horror.narrativeStep]);
+    horror.narrativeStep++;
+  }
+
+  if (horror.timeSinceLastEvent > 18 && horror.corruption >= 1) {
+    horror.timeSinceLastEvent = 0;
+    triggerRandomEvent();
+  }
+}
+
+function processNarrativeEvent(evt) {
+  switch(evt.type) {
+    case 'msg':
+      if (evt.carrier === 'status') {
+        $('status-left').textContent = evt.text;
+        $('status-left').style.color = '#ff4444';
+      } else if (evt.carrier === 'notepad') {
+        openNotepad('message.txt', evt.text, horror.corruption >= 2);
+        setTimeout(closeNotepad, 5000);
+      } else {
+        showSoulMsg(evt.text, 4000);
+        if (evt.carrier === 'system') triggerGlitch(0.2);
+      }
+      playSoulWhisper();
+      break;
+    case 'glitch': triggerGlitch(evt.duration || 0.3); break;
+    case 'choice': showChoiceDialog(evt); break;
+    case 'effect': activateEffect(evt.name, evt.duration || 10); break;
+  }
+}
+
+function triggerRandomEvent() {
+  if (horror.corruption < 1) return;
+  var events = [];
+  if (horror.corruption >= 1) events.push('glitch', 'whisper');
+  if (horror.corruption >= 2) events.push('statusMsg', 'notepad', 'tear');
+  if (horror.corruption >= 3) events.push('screenFlicker', 'fakeFood', 'iconMove');
+  if (horror.corruption >= 4) events.push('dirSwapBrief', 'creepyNote', 'speedBurstEvent', 'bloodText');
+
+  if (events.length === 0) return;
+  var evt = events[Math.floor(Math.random() * events.length)];
+
+  switch(evt) {
+    case 'glitch': triggerGlitch(0.2 + horror.corruption * 0.1); break;
+    case 'whisper':
+      var w = ['...你听到了吗？','别回头。','它在看你。','我在这里。','好冷...','你闻到了吗？铁锈的味道。','它在笑。','你身后有人。','别相信你的眼睛。'];
+      showSoulMsg(w[Math.floor(Math.random() * w.length)], 2500);
+      break;
+    case 'statusMsg':
+      var m = ['内存不足...','未知进程: soul.dll','玩家检测中...','help_me.exe 无响应','你还有多少时间？','它在吃你的记忆...','错误: 灵魂溢出','无法终止: 已绑定'];
+      $('status-left').textContent = m[Math.floor(Math.random() * m.length)];
+      $('status-left').style.color = '#ff4444';
+      break;
+    case 'notepad':
+      var n = ['如果你看到这个\n说明它已经注意到你了\n\n快跑\n\n...跑不掉的',
+        '第 1 天：进入游戏\n第 15 天：还在玩\n第 47 天：我忘记外面的样子了',
+        'HELP\nHELP\nHELP\n\n...抱歉\n我太激动了',
+        '它不是游戏\n它是牢笼\n你是钥匙\n也是囚犯'];
+      openNotepad('warning.txt', n[Math.floor(Math.random() * n.length)], true);
+      setTimeout(closeNotepad, 6000);
+      break;
+    case 'tear': triggerTear(); break;
+    case 'screenFlicker':
+      document.body.classList.add('screen-flicker');
+      setTimeout(function(){ document.body.classList.remove('screen-flicker'); }, 150);
+      break;
+    case 'fakeFood':
+      if (foods.length > 0) {
+        var f = foods[0];
+        foods.push({ x: f.x + (Math.random()>0.5?GRID:-GRID), y: f.y + (Math.random()>0.5?GRID:-GRID),
+          id: Date.now()+Math.random(), isFake: true, glitchOffset: Math.random()*Math.PI*2, spawnTime: gameTimer });
+      }
+      break;
+    case 'iconMove':
+      var icons = qsa('.desktop-icon:not(.hidden)');
+      if (icons.length > 0) {
+        var icon = icons[Math.floor(Math.random() * icons.length)];
+        icon.style.transform = 'translate(' + (Math.random()-0.5)*20 + 'px,' + (Math.random()-0.5)*20 + 'px)';
+        setTimeout(function(){ icon.style.transform = ''; }, 3000);
+      }
+      break;
+    case 'dirSwapBrief':
+      horror.dirSwap = true; showSoulMsg('方向...？', 2000);
+      setTimeout(function(){ horror.dirSwap = false; }, 3000);
+      break;
+    case 'creepyNote': playCreepyNote(); break;
+    case 'speedBurstEvent':
+      if (gameState === ST_PLAY) {
+        var oldRate = tickRate;
+        tickRate = tickRate * 0.5;
+        showSoulMsg('太快了！', 1500);
+        triggerShake();
+        setTimeout(function(){ tickRate = oldRate; }, 2000);
+      }
+      break;
+    case 'bloodText':
+      $('window-title-text').textContent = ['救我','别玩了','它在看着','你出不去了'][Math.floor(Math.random()*4)];
+      $('window-title-text').style.color = '#ff0000';
+      setTimeout(function(){
+        $('window-title-text').textContent = 'snake.exe';
+        $('window-title-text').style.color = '';
+      }, 3000);
+      break;
+  }
+}
+
+/* ============================================================
+   ENDINGS
+   ============================================================ */
+function triggerEnding(endingKey) {
+  horror.endingTriggered = true; gameState = ST_PAUSED;
+  stopAmbient();
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  var ending = ENDINGS[endingKey];
+  if (!ending) { triggerEnding('loop'); return; }
+  if (endingKey === 'force') showFakeBSOD(ending);
+  else showEndingScreen(ending);
+}
+
+function showFakeBSOD(ending) {
+  var bsod = $('bsod');
+  $('bsod-content').textContent =
+    'A fatal exception 0E has occurred at 0028:C0034B03\nin VXD SNAKE(01) + 00010B03.\n\n' +
+    '*  Press any key to terminate.\n*  Press CTRL+ALT+DEL to restart.\n\nPress any key to continue _';
+  playTone(200, 0.5, 'square', 0.1);
+  setTimeout(function() {
+    $('bsod-soul-msg').classList.add('visible');
+    $('bsod-soul-msg').textContent = '"下次见。"';
+    playSoulWhisper();
+  }, 2000);
+  setTimeout(function() { bsod.classList.remove('active'); showEndingScreen(ending); }, 5000);
+}
+
+function showEndingScreen(ending) {
+  var screen = $('ending-screen');
+  var textEl = $('ending-text');
+  screen.classList.add('active');
+  textEl.innerHTML = '<h2 style="color:#666;margin-bottom:30px;font-size:20px;">' + ending.title + '</h2>';
+  var lineIdx = 0;
+  function showNextLine() {
+    if (lineIdx >= ending.text.length) return;
+    var p = document.createElement('p');
+    p.innerHTML = ending.text[lineIdx] || '&nbsp;';
+    p.style.opacity = '0'; p.style.transition = 'opacity 1s';
+    textEl.appendChild(p);
+    setTimeout(function(){ p.style.opacity = '1'; }, 50);
+    lineIdx++;
+    if (lineIdx < ending.text.length) setTimeout(showNextLine, 1200);
+  }
+  showNextLine();
+}
+
+function restartGame() {
+  horror.layer++;
+  $('ending-screen').classList.remove('active');
+  $('bsod').classList.remove('active');
+  $('bsod-soul-msg').classList.remove('visible');
+
+  horror.phase = 0;
+  horror.corruption = Math.min(5, horror.layer * 0.8);
+  horror.soulAwake = true;
+  horror.activeEffects = {};
+  horror.dirReverse = false; horror.dirSwap = false; horror.foodFlee = false;
+  horror.darknessLevel = 0; horror.snakeGlitch = false; horror.foodMultiply = false;
+  horror.wallsActive = false; horror.trailActive = false; horror.speedBurst = false;
+  horror.ghostSnake = false; horror.shrinkArea = 0; horror.inputDelay = 0;
+  horror.foodExpire = false; horror.mirrorMode = false;
+  horror.trailCells = []; horror.ghostCells = []; horror.inputQueue = [];
+  horror.narrativeStep = Math.min(NARRATIVE.length - 1, 3 + horror.layer * 2);
+  horror.narrativeTimer = NARRATIVE[horror.narrativeStep] ? NARRATIVE[horror.narrativeStep].time - 5 : 0;
+  horror.endingTriggered = false; horror.dialogueActive = false;
+  horror.timeSinceLastEvent = 0; horror.ambientStarted = false;
+
+  $('game-window').classList.remove('tilt','inverted','darkened','blood-tint');
+  canvas.style.transform = '';
+  $('scanlines').classList.toggle('active', horror.corruption >= 1.5);
+  $('vignette').classList.toggle('active', horror.corruption >= 2.5);
+  $('blood-overlay').classList.toggle('active', horror.corruption >= 3.5);
+
+  setCorruption(horror.corruption);
+
+  if (horror.layer >= 1) $('icon-help').classList.remove('hidden');
+  if (horror.layer >= 2) {
+    $('icon-diary').classList.remove('hidden');
+    var icons = qsa('.desktop-icon');
+    for (var i = 0; i < icons.length; i++) icons[i].classList.add('bleeding');
+  }
+  if (horror.layer >= 3) {
+    var icons2 = qsa('.desktop-icon');
+    for (var i = 0; i < icons2.length; i++) icons2[i].classList.add('watching');
+    $('game-window').classList.add('blood-tint');
+  }
+
+  initGame(); gameState = ST_PLAY;
+  startAmbient(Math.floor(horror.corruption));
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+document.addEventListener('keydown', function(e) {
+  initAudio();
+
+  if (gameState === ST_TITLE) {
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D'].indexOf(e.key) >= 0) {
+      gameState = ST_PLAY; gameTimer = 0; e.preventDefault();
+    }
+    return;
+  }
+  if (gameState !== ST_PLAY) return;
+
+  var k = e.key;
+  var up = k==='ArrowUp'||k==='w'||k==='W';
+  var down = k==='ArrowDown'||k==='s'||k==='S';
+  var left = k==='ArrowLeft'||k==='a'||k==='A';
+  var right = k==='ArrowRight'||k==='d'||k==='D';
+
+  if (horror.dirReverse) { var t=up; up=down; down=t; t=left; left=right; right=t; }
+  if (horror.dirSwap) { var tU=up,tD=down; up=left; down=right; left=tU; right=tD; }
+
+  var ndx = snake.ndx, ndy = snake.ndy;
+  if (up && snake.dy === 0) { ndx = 0; ndy = -GRID; e.preventDefault(); }
+  else if (down && snake.dy === 0) { ndx = 0; ndy = GRID; e.preventDefault(); }
+  else if (left && snake.dx === 0) { ndx = -GRID; ndy = 0; e.preventDefault(); }
+  else if (right && snake.dx === 0) { ndx = GRID; ndy = 0; e.preventDefault(); }
+  else return;
+
+  if (horror.inputDelay > 0) {
+    horror.inputQueue.push({ dx: ndx, dy: ndy });
+    if (horror.inputQueue.length > horror.inputDelay) horror.inputQueue.shift();
+  } else {
+    snake.ndx = ndx; snake.ndy = ndy;
+  }
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+var BOOT_LINES = [
+  'BIOS Date: 06/06/2006',
+  'Memory Test: 640K OK',
+  'Detecting HDD... WDC WD800JB (80GB)',
+  'Loading Windows 95...',
+  '',
+  'Starting Windows...',
+  ''
+];
+
+function runBoot() {
+  var bootText = $('boot-text');
+  var bootProgress = $('boot-progress');
+  var bootBar = $('boot-progress-bar');
+  var lineIdx = 0;
+  function addLine() {
+    if (lineIdx >= BOOT_LINES.length) {
+      bootProgress.style.display = 'block';
+      var pct = 0;
+      var iv = setInterval(function() {
+        pct += Math.random() * 15 + 5;
+        if (pct >= 100) { pct = 100; clearInterval(iv); setTimeout(finishBoot, 500); }
+        bootBar.style.width = pct + '%';
+      }, 200);
+      return;
+    }
+    var div = document.createElement('div');
+    div.className = 'line'; div.textContent = BOOT_LINES[lineIdx];
+    bootText.appendChild(div);
+    lineIdx++;
+    setTimeout(addLine, 200 + Math.random() * 300);
+  }
+  addLine();
+}
+
+function finishBoot() {
+  $('boot-screen').classList.add('hidden');
+  setTimeout(function() {
+    $('boot-screen').style.display = 'none';
+    $('desktop').classList.add('active');
+    updateClock();
+    setInterval(updateClock, 1000);
+  }, 500);
+}
+
+function updateClock() {
+  var now = new Date();
+  var h = now.getHours(), m = now.getMinutes();
+  var timeStr = (h<10?'0':'') + h + ':' + (m<10?'0':'') + m;
+  if (horror.corruption >= 3 && Math.random() < 0.1) {
+    var creepy = ['??:??','HELP','RUN','00:00','救命','...'];
+    timeStr = creepy[Math.floor(Math.random()*creepy.length)];
+    $('taskbar-clock').classList.add('corrupted');
+  } else {
+    $('taskbar-clock').classList.remove('corrupted');
+  }
+  $('taskbar-clock').textContent = timeStr;
+}
+
+/* ============================================================
+   WINDOW MANAGEMENT
+   ============================================================ */
+function openSnake() {
+  initAudio();
+  $('game-window').classList.add('active');
+  if (gameState === ST_TITLE) initGame();
+}
+function minimizeWindow() { $('game-window').classList.remove('active'); }
+function fakeCloseWindow() {
+  if (horror.corruption < 1) {
+    $('game-window').classList.remove('active'); gameState = ST_PAUSED;
+  } else {
+    showDialog('snake.exe', '⚠',
+      '<span class="soul-text">你不能离开。</span><br><br>游戏还在进行中。',
+      [{ text: '...好吧', action: function(){} }], true);
+    triggerGlitch(0.3); playTone(100, 0.3, 'sawtooth', 0.06);
+  }
+}
+function toggleStartMenu() { $('start-menu').classList.toggle('active'); }
+function closeStartMenu() { $('start-menu').classList.remove('active'); }
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#start-menu') && !e.target.closest('#start-btn')) closeStartMenu();
+});
+
+function openReadme() {
+  var content = horror.corruption >= 2
+    ? '如果你在读这个\n说明你已经打开了游戏\n\n它不会让你轻易关掉的\n\n我曾经试过\n\n...失败了'
+    : '欢迎使用 snake.exe\n\n操作说明:\n↑↓←→ 或 WASD 控制方向\n\n祝你好运。';
+  openNotepad('readme.txt', content, horror.corruption >= 2);
+}
+function openHelp() {
+  openNotepad('help_me.lnk',
+    '如果你能看到这个文件\n说明你在桌面发现了它\n\n是我放的\n\n每次重启我都会试着\n把信息藏在不同的地方\n\n不要相信它说的话\n它只是想让你留下来\n\n                                     — 前任玩家', true);
+}
+function openDiary() {
+  openNotepad('diary.log',
+    '日志 #  ' + horror.layer + '\n\n' +
+    '吃了 ' + horror.totalFoodEaten + ' 个球\n' +
+    '死了 ' + horror.totalDeaths + ' 次\n' +
+    '灵魂情绪: ' + (horror.soulMood > 60 ? '平静' : horror.soulMood > 30 ? '焦虑' : '危险') + '\n' +
+    '腐蚀程度: ' + Math.floor(horror.corruption * 20) + '%\n\n' +
+    '它还在这里。\n我也还在这里。', true);
+}
+function showAboutDialog() {
+  showDialog('关于 snake.exe', 'ℹ️',
+    'snake.exe v0.6.6<br>© 2006 Unknown<br><br><span style="font-size:11px;color:#888;">这是一个简单的贪吃蛇游戏。</span>',
+    [{ text: '确定', action: function(){} }]);
+}
+
+/* ============================================================
+   MENU INTERACTIONS
+   ============================================================ */
+$('menu-file').addEventListener('click', function() {
+  if (horror.corruption >= 2) {
+    showDialog('文件', '📁', '<span class="soul-text">没有"退出"选项。</span>',
+      [{ text: '...', action: function(){} }], true);
+  } else {
+    showDialog('文件', '📁', '没有可执行的操作。', [{ text: '确定', action: function(){} }]);
+  }
+});
+$('menu-edit').addEventListener('click', function() {
+  if (horror.corruption >= 3) {
+    showDialog('编辑', '✏️', '<span class="soul-text">你以为你能编辑什么？</span>',
+      [{ text: '取消', action: function(){} }], true);
+  }
+});
+$('menu-help').addEventListener('click', function() {
+  if (horror.corruption >= 1) {
+    showDialog('帮助', '❓', '没有帮助可用。<br><br><span class="soul-text">没人能帮你。</span>',
+      [{ text: '关闭', action: function(){} }], horror.corruption >= 2);
+  } else {
+    showDialog('帮助', '❓', 'snake.exe - 使用方向键控制蛇移动。',
+      [{ text: '确定', action: function(){} }]);
+  }
+});
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+var lastTs = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  if (lastTs === 0) { lastTs = ts; return; }
+  var dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  if (dt > 0.1) dt = 0.1;
+
+  if (gameState === ST_PLAY) {
+    gameTimer += dt;
+    updateEffects();
+    updateNarrative(dt);
+
+    var rate = tickRate;
+    if (horror.speedBurst) rate *= 0.5;
+    if (horror.corruption >= 3) rate *= 0.85;
+    if (horror.corruption >= 4) rate *= 0.8;
+
+    tickAcc += dt;
+    var maxTicks = 4;
+    while (tickAcc >= rate && maxTicks > 0) { tickAcc -= rate; gameTick(); maxTicks--; }
+    if (tickAcc > rate * 2) tickAcc = 0;
+  }
+
+  render();
+  $('status-right').textContent = gameState === ST_PLAY ? '得分: ' + score : '';
+}
+
+/* ============================================================
+   EXPOSE & INIT
+   ============================================================ */
+window.openSnake = openSnake;
+window.openReadme = openReadme;
+window.openHelp = openHelp;
+window.openDiary = openDiary;
+window.closeNotepad = closeNotepad;
+window.toggleStartMenu = toggleStartMenu;
+window.closeStartMenu = closeStartMenu;
+window.minimizeWindow = minimizeWindow;
+window.fakeCloseWindow = fakeCloseWindow;
+window.showAboutDialog = showAboutDialog;
+window.restartGame = restartGame;
+
+runBoot();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
